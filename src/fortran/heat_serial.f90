@@ -74,7 +74,7 @@ subroutine initialize(rows,cols)
     end do
     do i=1,rows
         T_old(i,1) = MAX_TEMP
-        T_new(rows,j) = MAX_TEMP
+        T_new(i,1) = MAX_TEMP
     end do
 end subroutine initialize
 
