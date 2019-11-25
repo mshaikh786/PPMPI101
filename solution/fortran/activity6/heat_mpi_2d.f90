@@ -15,7 +15,7 @@
 ! Creating a module for globalizing the allocatable arrays
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 module grid
-    real, dimension(:,:), allocatable ::T_old,T_new
+    real (kind=4), dimension(:,:), allocatable ::T_old,T_new
 end module grid
 
 
@@ -65,7 +65,7 @@ program heat_mpi_2d
 
 
     integer :: i,j,iter,rem
-    real :: dT,dT_local
+    real (kind=4) :: dT,dT_local
 
 
     ! Initialize MPI
@@ -118,8 +118,7 @@ program heat_mpi_2d
     dT = MAX_TEMP
 
     do while ( (dT > TOL) .AND. (iter <= MAX_ITER) )
-        ! update boundaries
-        call halo_update(rows,cols)
+
 
         !   Evaluate temperature in inner domain
         do i = 2,rows-1
@@ -133,16 +132,17 @@ program heat_mpi_2d
         dT_local = 0.0
         do i = 2,rows-1
             do j = 2,cols-1
-               dT_local = max(abs(T_new(i,j) - T_old(i,j)) , dT)
+               dT_local = max(abs(T_new(i,j) - T_old(i,j)) , dT_local)
                T_old(i,j) = T_new(i,j)
             end do
         end do
 
        ! Communicate to everyone the maximum of local errors from all ranks
        ! hint: use MPI_Allreduce with  MPI_MAX operation
-        call MPI_Allreduce(dT_local, dT, 1, MPI_REAL, MPI_MAX, cartcomm,ierr);
+        call MPI_Allreduce(dT_local, dT, 1, MPI_FLOAT, MPI_MAX, cartcomm,ierr);
 
-
+        ! update boundaries
+        call halo_update(rows,cols)
         iter=iter+1
     end do
 
@@ -217,15 +217,15 @@ subroutine halo_update(rows,cols)
     integer :: tag =100         ! not important for us but MPI expects a value.
 
     ! We will need to make send and receive buffers to exchange left and right columns
-    real, dimension(rows) :: sendbuf_l
-    real, dimension(rows) :: sendbuf_r
-    real, dimension(cols) :: sendbuf_u
-    real, dimension(cols) :: sendbuf_d
+    real (kind=4), dimension(rows) :: sendbuf_l
+    real (kind=4), dimension(rows) :: sendbuf_r
+    real (kind=4), dimension(cols) :: sendbuf_u
+    real (kind=4), dimension(cols) :: sendbuf_d
 
-    real, dimension(rows) :: recvbuf_l
-    real, dimension(rows) :: recvbuf_r
-    real, dimension(cols) :: recvbuf_u
-    real, dimension(cols) :: recvbuf_d
+    real (kind=4), dimension(rows) :: recvbuf_l
+    real (kind=4), dimension(rows) :: recvbuf_r
+    real (kind=4), dimension(cols) :: recvbuf_u
+    real (kind=4), dimension(cols) :: recvbuf_d
 
 
     do i =1,rows
@@ -244,15 +244,15 @@ subroutine halo_update(rows,cols)
         recvbuf_d(j) = T_old(rows,j)
     end do
 
-    call MPI_Irecv(recvbuf_u, cols, MPI_REAL, up, tag, cartcomm, req(5),ierr);
-    call MPI_Irecv(recvbuf_d, cols, MPI_REAL, down, tag, cartcomm, req(6),ierr);
-    call MPI_Irecv(recvbuf_l, rows, MPI_REAL, left, tag, cartcomm, req(7),ierr);
-    call MPI_Irecv(recvbuf_r, rows, MPI_REAL, right, tag, cartcomm, req(8),ierr);
+    call MPI_Irecv(recvbuf_u, cols, MPI_FLOAT, up, tag, cartcomm, req(5),ierr);
+    call MPI_Irecv(recvbuf_d, cols, MPI_FLOAT, down, tag, cartcomm, req(6),ierr);
+    call MPI_Irecv(recvbuf_l, rows, MPI_FLOAT, left, tag, cartcomm, req(7),ierr);
+    call MPI_Irecv(recvbuf_r, rows, MPI_FLOAT, right, tag, cartcomm, req(8),ierr);
 
-    call MPI_Isend(sendbuf_u, cols, MPI_REAL, up, tag, cartcomm, req(1),ierr)
-    call MPI_Isend(sendbuf_d, cols, MPI_REAL, down, tag, cartcomm,req(2),ierr);
-    call MPI_Isend(sendbuf_l, rows, MPI_REAL, left, tag, cartcomm, req(3),ierr);
-    call MPI_Isend(sendbuf_r, rows, MPI_REAL, right, tag, cartcomm,req(4),ierr);
+    call MPI_Isend(sendbuf_u, cols, MPI_FLOAT, up, tag, cartcomm, req(1),ierr)
+    call MPI_Isend(sendbuf_d, cols, MPI_FLOAT, down, tag, cartcomm,req(2),ierr);
+    call MPI_Isend(sendbuf_l, rows, MPI_FLOAT, left, tag, cartcomm, req(3),ierr);
+    call MPI_Isend(sendbuf_r, rows, MPI_FLOAT, right, tag, cartcomm,req(4),ierr);
 
     call MPI_Waitall(8, req, status,ierr);
 
@@ -284,7 +284,7 @@ subroutine write_grid(rows,cols,iter)
     integer :: recv_nelems(lprocs)                 ! number of elements in a vector to receive from each rank
     integer :: disp(lprocs)                        ! array to hold offsets where data from each rank will go in the receive buffer
 
-    real, dimension(:), allocatable :: sendbuf,recvbuf      ! send buffer to send the data to root and recvbuffer is only signifcant to root
+    real (kind=4), dimension(:), allocatable :: sendbuf,recvbuf      ! send buffer to send the data to root and recvbuffer is only signifcant to root
     character(len=256)   ::  fname                         ! output filename
 
     root=0
@@ -319,7 +319,7 @@ subroutine write_grid(rows,cols,iter)
         allocate(recvbuf(recv_buf_size))
     end if
 
-    call MPI_Gatherv(sendbuf, numelems_local, MPI_REAL, recvbuf, recv_nelems,disp, MPI_REAL, root, cartcomm,ierr);
+    call MPI_Gatherv(sendbuf, numelems_local, MPI_FLOAT, recvbuf, recv_nelems,disp, MPI_FLOAT, root, cartcomm,ierr);
 
     if (lrank == root) then
         write(fname,'(A,I0,A)') 'output_mpi_t',iter,'.txt'

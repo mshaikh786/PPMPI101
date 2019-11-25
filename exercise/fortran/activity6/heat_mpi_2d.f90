@@ -116,7 +116,7 @@ program heat_mpi_2d
         dT_local = 0.0
         do i = 2,rows-1
             do j = 2,cols-1
-               dT_local = max(abs(T_new(i,j) - T_old(i,j)) , dT)
+               dT_local = max(abs(T_new(i,j) - T_old(i,j)) , dT_local)
                T_old(i,j) = T_new(i,j)
             end do
         end do

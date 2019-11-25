@@ -30,7 +30,7 @@ int globalN, localN;
 int lrank, lprocs;
 // Local rows and columns along with ghost region
 int rows, cols;
-
+float **T_old, **T_new;
 // variables to store virtual topology information
 int ndims = 2;			// Since we are decomposing grid in 2D
 int dims[2] = { 0, 0 };  	// placeholder for dimensions
@@ -46,7 +46,7 @@ MPI_Comm cartcomm;		// Declaration of new communicator
 int main(int argc, char *argv[]) {
 
 	int i, j;
-	float **T_old, **T_new;
+
 
 	// Initialize MPI
 	MPI_Init(&argc, &argv);
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
 	}
 
 
-	write_grid(iter-1,T_old);
+	write_grid(iter,T_old);
 
 
 	// Printing results
