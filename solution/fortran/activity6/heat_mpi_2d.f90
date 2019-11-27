@@ -6,7 +6,7 @@
 ! TOL:         Minimum delta T such that below this value no change is deemed and the simulation needs to stop
 ! MAX_TEMP:    Temperature on the boundary
 
-#define N           27
+#define N           256
 #define MAX_ITER    4000
 #define TOL         1e-4
 #define MAX_TEMP    100.0
@@ -65,6 +65,7 @@ program heat_mpi_2d
 
 
     integer :: i,j,iter,rem
+    integer :: flag
     real (kind=4) :: dT,dT_local
 
 
@@ -73,7 +74,18 @@ program heat_mpi_2d
     call MPI_Comm_rank(MPI_COMM_WORLD,grank,ierr)
     call MPI_Comm_size(MPI_COMM_WORLD,gprocs,ierr)
 
-
+    call is_grid_decomposible(flag)
+    if ( flag .ne. 0) then
+        if (grank .eq. 0) then
+            write(0,'(A)') "Grid decomposition will fail."
+            write(0,'(A,I0,A)') "nprocs = ",gprocs,"     --- Number of MPI Processes"
+            write(0,'(A,I0,A)') "N      = ",N,"          --- Number of grid points in each dimension"
+            write(0,'(A)') "nprocs should be a perfect square (e.g. 1,4,9,16...)"
+            write(0,'(A)')"Also, N should be exactly divisible by sqrt(nprocs)"
+            flush(0)
+            call MPI_Abort(MPI_COMM_WORLD,911,ierr);
+        end if
+    end if
      ! It may be a good idea to create a Cartesian Communicator
      ! Here are some hints:
      ! 1.   Get a good guess on dimensions
@@ -114,7 +126,7 @@ program heat_mpi_2d
     allocate(T_new(rows,cols))
 
     call initialize(rows,cols)
-    iter = 0
+    iter = 1
     dT = MAX_TEMP
 
     do while ( (dT > TOL) .AND. (iter <= MAX_ITER) )
@@ -147,14 +159,14 @@ program heat_mpi_2d
     end do
 
     !writing the output to the file is optional and is there for validation.
-    call write_grid(rows,cols,iter)
+    call write_grid(rows,cols,iter-1)
 
 
     if (lrank == 0) then
         if ((iter - 1) == MAX_ITER) then
-            print *, "Reached maximum iterations ",iter,". Error = ", dT
+            print *, "Reached maximum iterations ",iter-1,". Error = ", dT
         else
-            print *, lrank,": Converged in ",iter," iterations with and error of ",dT
+            print *, lrank,": Converged in ",iter-1," iterations with and error of ",dT
         end if
     end if
 
@@ -342,3 +354,31 @@ end subroutine write_grid
 
 
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! general validity check
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+subroutine is_grid_decomposible(flag)
+
+    use my_mpi_vars
+    implicit none
+    ! condition 1 : N should be exactly divisible by sqrt(nprocs)
+    ! condition 2 : nprocs should be a perfect square i.e. sqrt(nprocs) is a whole number
+    integer :: cond_1=0,cond_2=0
+    integer :: proc_1D,flag
+
+    proc_1D = sqrt(real(gprocs))
+    ! Check first condition
+    if ( mod(N,proc_1D) .ne. 0) then
+            cond_1 = 1
+    end if
+    ! Check second condition
+    if ( (gprocs/proc_1D) .ne. proc_1D ) then
+            cond_2 = 1
+    end if
+    if ( (cond_1==0)  .and. (cond_2==0) ) then
+        flag=0
+    else
+        flag=1
+    end if
+
+end subroutine is_grid_decomposible
