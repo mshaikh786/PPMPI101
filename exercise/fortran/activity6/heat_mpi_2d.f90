@@ -6,7 +6,6 @@
 ! TOL:         Minimum delta T such that below this value no change is deemed and the simulation needs to stop
 ! MAX_TEMP:    Temperature on the boundary
 
-
 #define N           27
 #define MAX_ITER    4000
 #define TOL         1e-4
@@ -16,7 +15,7 @@
 ! Creating a module for globalizing the allocatable arrays
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 module grid
-    real, dimension(:,:), allocatable ::T_old,T_new
+    real (kind=4), dimension(:,:), allocatable ::T_old,T_new
 end module grid
 
 
@@ -66,7 +65,8 @@ program heat_mpi_2d
 
 
     integer :: i,j,iter,rem
-    real :: dT,dT_local
+    integer :: flag
+    real (kind=4) :: dT,dT_local
 
 
     ! Initialize MPI
@@ -74,7 +74,18 @@ program heat_mpi_2d
     call MPI_Comm_rank(MPI_COMM_WORLD,grank,ierr)
     call MPI_Comm_size(MPI_COMM_WORLD,gprocs,ierr)
 
-
+    call is_grid_decomposible(flag)
+    if ( flag .ne. 0) then
+        if (grank .eq. 0) then
+            write(0,'(A)') "Grid decomposition will fail."
+            write(0,'(A,I0,A)') "nprocs = ",gprocs,"     --- Number of MPI Processes"
+            write(0,'(A,I0,A)') "N      = ",N,"          --- Number of grid points in each dimension"
+            write(0,'(A)') "nprocs should be a perfect square (e.g. 1,4,9,16...)"
+            write(0,'(A)')"Also, N should be exactly divisible by sqrt(nprocs)"
+            flush(0)
+            call MPI_Abort(MPI_COMM_WORLD,911,ierr);
+        end if
+    end if
  ! It may be a good idea to create a Cartesian Communicator
  ! Here are some hints:
  ! 1.   Get a good guess on dimensions
@@ -211,7 +222,7 @@ subroutine write_grid(rows,cols,iter)
     integer :: recv_nelems(lprocs)                 ! number of elements in a vector to receive from each rank
     integer :: disp(lprocs)                        ! array to hold offsets where data from each rank will go in the receive buffer
 
-    real, dimension(:), allocatable :: sendbuf,recvbuf      ! send buffer to send the data to root and recvbuffer is only signifcant to root
+    real (kind=4), dimension(:), allocatable :: sendbuf,recvbuf      ! send buffer to send the data to root and recvbuffer is only signifcant to root
     character(len=256)   ::  fname                         ! output filename
 
     root=0
@@ -246,7 +257,7 @@ subroutine write_grid(rows,cols,iter)
         allocate(recvbuf(recv_buf_size))
     end if
 
-    call MPI_Gatherv(sendbuf, numelems_local, MPI_REAL, recvbuf, recv_nelems,disp, MPI_REAL, root, cartcomm,ierr);
+    call MPI_Gatherv(sendbuf, numelems_local, MPI_FLOAT, recvbuf, recv_nelems,disp, MPI_FLOAT, root, cartcomm,ierr);
 
     if (lrank == root) then
         write(fname,'(A,I0,A)') 'output_t',iter,'.txt'
@@ -266,3 +277,32 @@ subroutine write_grid(rows,cols,iter)
         close(10)
     end if
 end subroutine write_grid
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! general validity check
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+subroutine is_grid_decomposible(flag)
+
+    use my_mpi_vars
+    implicit none
+    ! condition 1 : N should be exactly divisible by sqrt(nprocs)
+    ! condition 2 : nprocs should be a perfect square i.e. sqrt(nprocs) is a whole number
+    integer :: cond_1=0,cond_2=0
+    integer :: proc_1D,flag
+
+    proc_1D = sqrt(real(gprocs))
+    ! Check first condition
+    if ( mod(N,proc_1D) .ne. 0) then
+            cond_1 = 1
+    end if
+    ! Check second condition
+    if ( (gprocs/proc_1D) .ne. proc_1D ) then
+            cond_2 = 1
+    end if
+    if ( (cond_1==0)  .and. (cond_2==0) ) then
+        flag=0
+    else
+        flag=1
+    end if
+
+end subroutine is_grid_decomposible

@@ -10,6 +10,7 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <math.h>
 
 #define N			27
@@ -22,6 +23,31 @@ void initialize(float**);
 void halo_update(float**);
 void write_grid(int, float**);
 
+
+
+// general validity check
+int is_grid_decomposible (int nprocs){
+	// condition 1 : N should be exactly divisible by sqrt(nprocs)
+	// condition 2 : nprocs should be a perfect square i.e. sqrt(nprocs) is a whole number
+	bool cond_1=true , cond_2=true;
+
+
+	int procs_1D = (int) (sqrt((double) nprocs));
+	// Check first condition
+	if ( N % procs_1D != 0 ){
+			cond_1 = false;
+	}
+	// Check second condition
+	if ( nprocs % procs_1D != 0 ){
+			cond_2 = false;
+	}
+	if (( cond_1 == true ) && ( cond_2 == true)){
+		return 0;
+	}
+	else {
+		return 1;
+	}
+}
 
 // Global rank and number of MPI processes
 int grank, gprocs;
@@ -53,6 +79,16 @@ int main(int argc, char *argv[]) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &grank);
 	MPI_Comm_size(MPI_COMM_WORLD, &gprocs);
 
+	if ( is_grid_decomposible(gprocs) != 0){
+		if (grank == 0){
+			fprintf(stderr,"Grid decomposition will fail.\n");
+			fprintf(stderr,"nprocs = %d  	---	Number of MPI Processes\n",gprocs);
+			fprintf(stderr,"N      = %d  	---	Number of grid points in each dimension\n",N);
+			fprintf(stderr,"nprocs should be a perfect square (e.g. 1,4,9,16...)\n"
+					"Also, N should be exactly divisible by sqrt(nprocs)\n");
+			MPI_Abort(MPI_COMM_WORLD,911);
+		}
+	}
 	/* It may be a good idea to create a Cartesian Communicator
 	 * Here are some hints:
 	 * 1.	Get a good guess on dimensions
