@@ -24,8 +24,8 @@ int main(int argc, char *argv[]) {
 	int i, j;
 	rows = N + 2, cols = N + 2;
 
-	printf("N: %ld\nMAX_ITER: %ld\nTOL: %4lf\nMAX_TEMP: %4lf\n",N,MAX_ITER,TOL,MAX_TEMP);
-	printf("Rows: %ld\nCols: %ld\n",rows,cols);
+	printf("N: %d\nMAX_ITER: %d\nTOL: %4lf\nMAX_TEMP: %4lf\n",N,MAX_ITER,TOL,MAX_TEMP);
+	printf("Rows: %d\nCols: %d\n",rows,cols);
 
 	T_old = allocate(T_old);
 	T_new = allocate(T_new);

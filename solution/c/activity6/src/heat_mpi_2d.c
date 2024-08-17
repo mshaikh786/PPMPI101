@@ -13,7 +13,7 @@
 #include <stdbool.h>
 #include <math.h>
 
-#define N		32
+#define N		64
 #define MAX_ITER	4000
 #define TOL		1e-4
 #define MAX_TEMP	100.0
@@ -28,31 +28,36 @@ int hint_on_failure(int err,int gprocs){
                         fprintf(stderr,"N      = %d     ---     Number of grid points in each dimension\n\n",N);
                         fprintf(stderr,"Grid decomposition will fail.\n");
                         fprintf(stderr,"Reason:\n");
-			if (err==111)
+			if (err==111){
 				fprintf(stderr,"nprocs should be a perfect square (e.g. 1,4,9,16...)\n");
-			if (err==112)
+			}
+			if (err==112){
                                 fprintf(stderr,"Also, N should be exactly divisible by sqrt(nprocs)\n");
+			}
+			return 0;
 }
 
 // general validity check
 int is_grid_decomposible (int nprocs){
 	// condition 1 : N should be exactly divisible by sqrt(nprocs)
 	// condition 2 : nprocs should be a perfect square i.e. sqrt(nprocs) is a whole number
-
+	int r_val=0;
 	float tmp = (float) sqrt((double) nprocs);
 	int procs_1D = (int) tmp;
 	if (ceil(tmp) != floor(tmp)){
 		hint_on_failure(111,nprocs);
-		return 1;
+		r_val=1;
 	} 
 	else{
 	   tmp = N / nprocs ;
 	   if (ceil(tmp) != floor(tmp)) {
 		hint_on_failure(112,nprocs);
-		return 1;
+		r_val=1;
 	   	
 	   }
 	}
+	return r_val;
+
 }
 
 
@@ -128,8 +133,8 @@ int main(int argc, char *argv[]) {
 	cols = localN + 2;
 
 	if (grank == 0){
-		printf("N: %ld\nMAX_ITER: %ld\nTOL: %4lf\nMAX_TEMP: %4lf\n",N,MAX_ITER,TOL,MAX_TEMP) ;
-		printf("Numprocs: %ld\nRows: %ld\nCols: %ld\n",gprocs,rows,cols);
+		printf("N: %d\nMAX_ITER: %d\nTOL: %4lf\nMAX_TEMP: %4lf\n",N,MAX_ITER,TOL,MAX_TEMP) ;
+		printf("Numprocs: %d\nRows: %d\nCols: %d\n",gprocs,rows,cols);
 	}
 
 	T_old = allocate(T_old);
